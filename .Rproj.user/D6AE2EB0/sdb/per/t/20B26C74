@@ -1,0 +1,22 @@
+{
+    "contents" : "",
+    "created" : 1447857561090.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "20B26C74",
+    "lastKnownWriteTime" : 7741240723082584096,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "caption" : "pml.training",
+        "contentUrl" : "content?title=pml.training&file=cac151b7988946cfb2212f18c372936d.htm",
+        "displayedObservations" : 1000,
+        "displayedVariables" : 100,
+        "totalObservations" : 19622,
+        "variables" : 160
+    },
+    "source_on_save" : false,
+    "type" : "r_dataframe"
+}

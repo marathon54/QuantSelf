@@ -1,0 +1,91 @@
+---
+title: "Quantified Self"
+author: "Kevin A. Ryan (JHUAPL)"
+date: "Wednesday, November 18, 2015"
+output: html_document
+---
+
+*Background*
+
+This report summarizes the use of a Random Forest model to classify participants performing exercises with a variety of levels of quality in form. The model achieves an accuracy of 0.995% in predictions made to a out-of-sample testing set and correctly predicts the class for all of the entries in the verification set.
+```{r, warning=FALSE}
+library(caret)
+library(doParallel)
+```
+
+*Load the Data*
+
+The dataset that is used in this report is a collection of accelerometer data collected while 6 study participants performed barbell lifts both correctly and incorrectly. The data was created by Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13) . Stuttgart, Germany: ACM SIGCHI, 2013. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+This report assumes that the data has been downloaded locally into two files named “pml-training.csv” and “pml-testing.csv”.
+
+```{r}
+training <- read.csv("pml-training.csv", na.strings=c("NA", ""), strip.white = T)
+verification <- read.csv("pml-testing.csv", na.strings=c("NA", ""), strip.white = T)
+```
+
+While the data contains 160 columns, many of these are not useful due to missing data. In fact, columns with NA values contain just about exclusively blanks and NA values. Remove any column that contains an NA value from the training set and keep the same columns in the verification set (except “classe” which doesn’t exist in the prediction set and manually retain problem_id)
+```{r}
+training <- training[,colSums(is.na(training)) == 0]
+verification <- cbind(verification[,colnames(training[,-ncol(training)])], problem_id=verification$problem_id)
+```
+At this point the data has been loaded and filtered to retain only fully valid variables.
+
+*Building the model*
+
+This section will describe building a model that predicts the “classe” variable from the remaining variables. This section will also estimate the error of this prediction model using cross validation.
+
+**Preprocessing**
+
+The predictions from the model should be based only on the accelerometer data. Therefore, remove columns such as sample number, timestamps, user_name, and window information. Then, determine if there are any variables that could be removed due to high pair-wise correlation.
+```{r}
+training <- training[,-c(1:7)]
+verification <- verification[,-c(1:7)]
+highCorrIdx <- findCorrelation(abs(cor(training[,-53])),0.85)
+training <- training[,-highCorrIdx]
+verification <- verification[,-highCorrIdx]
+```
+
+Later we will need to test our model on a hold-out testing set of the data to obtain an out-of-sample error estimate.
+```{r}
+set.seed(42)
+inTrain <- createDataPartition(y=training$classe, p=0.75, list=FALSE)
+testing <- training[-inTrain,]
+training <- training[inTrain,]
+```
+
+From here out, the model will be built using the training set only. Its effectiveness will be measured with the testing set.
+
+**Building a Model**
+
+The model will be built with a Random Forest approach due to it’s ability to achieve high accuracy. Even though it is typically slow to build, there is no real-time model generation need for this problem and as much time as is required can be spent training. In addition, the slowness can be mitigated by enabling parallel execution with the doParallel library previously loaded. Finally, the cross-validation method is set for the training control argument. This also improves the speed over the default bootstrap while still mantaining quality of the model.
+
+
+```{r}
+ctrl <- trainControl(method="cv",number=4) #method="cv"
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+modFit <- train(classe~.,data=training,method="rf", trControl=ctrl)
+stopCluster(cl)
+```
+
+Messin with Trees....
+```{r}
+library(rpart)
+library(partykit)
+
+rpart1<-rpart(classe ~ ., data=training, control = rpart.control(maxdepth =))
+rpart1a<- as.party(rpart1)
+plot(rpart1a)
+
+```
+
+**Model Results**
+
+Let’s inspect some aspects of the resulting model:
+```{r}
+varImpPlot(modFit$finalModel)
+plot(modFit$finalModel, log="y")
+modFit$finalModel
+```
+
